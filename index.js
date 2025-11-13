@@ -1,53 +1,60 @@
-const express = require('express')
-const cors = require('cors');
-require('dotenv').config()
-const app = express()
-const { MongoClient, ServerApiVersion } = require('mongodb');
-const port = process.env.PORT || 3000;
+import express from "express";
+import cors from "cors";
+import { MongoClient, ServerApiVersion } from "mongodb";
+import dotenv from "dotenv";
 
-//middleware
+dotenv.config();
+const app = express();
 app.use(cors());
 app.use(express.json());
 
+const port = process.env.PORT || 3000;
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.psactc0.mongodb.net/?appName=Cluster0`;
+// ✅ Correctly use env variables
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.psactc0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
-console.log(uri)
-
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
 });
-
-
-app.get('/', (req, res) => {
-  res.send('learning online continues')
-})
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
-    // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } finally {
-    // Ensures that the client will close when you finish/error
-    //await client.close();
+    const db = client.db("learningDB");
+    const courseCollection = db.collection("courses");
+
+    app.post('/courses',async (req,res)=>{
+      const newCourse = req.body;
+      const result = await courseCollection.insertOne(newCourse)
+    })
+    app.delete('/courses/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await coursesCollection.deleteOne(query);
+      res.send(result)
+    })
+
+    app.get("/", (req, res) => {
+      res.send("Learning Server is running");
+    });
+
+    app.get("/courses", async (req, res) => {
+      const result = await courseCollection.find().toArray();
+      res.send(result);
+    });
+
+    console.log("✅ MongoDB connected successfully!");
+  } catch (err) {
+    console.error(err);
   }
 }
+
 run().catch(console.dir);
 
 app.listen(port, () => {
-  console.log(`Online learning on port ${port}`)
-})
-
-
-
-
-//learningDBUser
-//wR6VJ7HRe29VgMHL
+  console.log(`Learning Server running on port ${port}`);
+});
