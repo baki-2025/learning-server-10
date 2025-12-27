@@ -5,20 +5,25 @@ import dotenv from "dotenv";
 
 dotenv.config();
 const app = express();
-app.use(cors());
+
+// ------------------------------
+// CORS Configuration
+// ------------------------------
+app.use(cors({
+  origin: "http://localhost:5173", // your frontend URL
+  credentials: true                // allow cookies/auth headers
+}));
+
 app.use(express.json());
 
 const port = process.env.PORT || 3000;
 
-// ✅ MongoDB connection
+// ------------------------------
+// MongoDB Connection
+// ------------------------------
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.psactc0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
-
 const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
+  serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
 });
 
 async function run() {
@@ -26,111 +31,157 @@ async function run() {
     await client.connect();
     const db = client.db("learningDB");
 
-    // Collections
-    const courseCollection = db.collection("courses");
-    const instructorCollection = db.collection("instructors");
+    const usersCollection = db.collection("users");
+    const coursesCollection = db.collection("courses");
+    const instructorsCollection = db.collection("instructors");
 
-    // ----------------------------------
-    // 🟢 COURSE ROUTES (Full CRUD)
-    // ----------------------------------
+    // ------------------------------
+    // COURSE ROUTES
+    // ------------------------------
 
-    // ✅ Create Course
+    // Create Course
     app.post("/courses", async (req, res) => {
-      const newCourse = req.body; // { title, image, price, duration, category, description }
-      const result = await courseCollection.insertOne(newCourse);
-      res.send(result);
+      try {
+        const newCourse = req.body;
+        const result = await coursesCollection.insertOne(newCourse);
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
 
-    // ✅ Get All Courses
+    // Get all courses
     app.get("/courses", async (req, res) => {
-      const result = await courseCollection.find().toArray();
-      res.send(result);
+      try {
+        const courses = await coursesCollection.find().toArray();
+        res.send(courses);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
 
-    // ✅ Get Single Course by ID
+    // Get course by ID
     app.get("/courses/:id", async (req, res) => {
-      const id = req.params.id;
-      const course = await courseCollection.findOne({ _id: new ObjectId(id) });
-      res.send(course);
+      try {
+        const id = req.params.id;
+        const course = await coursesCollection.findOne({ _id: new ObjectId(id) });
+        res.send(course);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
 
-    // ✅ Update Course
+    // Update course
     app.put("/courses/:id", async (req, res) => {
-      const id = req.params.id;
-      const updatedCourse = req.body;
-      const filter = { _id: new ObjectId(id) };
-      const updateDoc = { $set: updatedCourse };
-      const result = await courseCollection.updateOne(filter, updateDoc);
-      res.send(result);
+      try {
+        const id = req.params.id;
+        const updatedCourse = req.body;
+        const result = await coursesCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updatedCourse }
+        );
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
 
-    // ✅ Delete Course
+    // Delete course
     app.delete("/courses/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await courseCollection.deleteOne(query);
-      res.send(result);
+      try {
+        const id = req.params.id;
+        const result = await coursesCollection.deleteOne({ _id: new ObjectId(id) });
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
 
-    // ✅ My Added Courses (Filter by Instructor Email)
+    // Get courses added by instructor
     app.get("/my-courses/:email", async (req, res) => {
-      const email = req.params.email;
-      const result = await courseCollection.find({ instructorEmail: email }).toArray();
-      res.send(result);
+      try {
+        const email = req.params.email;
+        const courses = await coursesCollection.find({ "instructor.email": email }).toArray();
+        res.send(courses);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
 
-    // ✅ My Enrolled Courses (Filter by User Email)
+    // Get courses enrolled by user
     app.get("/enrolled-courses/:email", async (req, res) => {
-      const email = req.params.email;
-      const result = await courseCollection.find({ enrolledUsers: email }).toArray();
-      res.send(result);
+      try {
+        const email = req.params.email;
+        const courses = await coursesCollection.find({ enrolledUsers: email }).toArray();
+        res.send(courses);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
 
-    // ----------------------------------
-    // 🟣 INSTRUCTOR ROUTES (Full CRUD)
-    // ----------------------------------
+    // ------------------------------
+    // INSTRUCTOR ROUTES
+    // ------------------------------
 
-    // ✅ Add Instructor
+    // Create instructor
     app.post("/instructors", async (req, res) => {
-      const newInstructor = req.body; // { name, skill, email, image }
-      const result = await instructorCollection.insertOne(newInstructor);
-      res.send(result);
+      try {
+        const newInstructor = req.body;
+        const result = await instructorsCollection.insertOne(newInstructor);
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
 
-    // ✅ Get All Instructors
+    // Get all instructors
     app.get("/instructors", async (req, res) => {
-      const result = await instructorCollection.find().toArray();
-      res.send(result);
+      try {
+        const instructors = await instructorsCollection.find().toArray();
+        res.send(instructors);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
 
-    // ✅ Get Single Instructor
+    // Get instructor by ID
     app.get("/instructors/:id", async (req, res) => {
-      const id = req.params.id;
-      const instructor = await instructorCollection.findOne({ _id: new ObjectId(id) });
-      res.send(instructor);
+      try {
+        const id = req.params.id;
+        const instructor = await instructorsCollection.findOne({ _id: new ObjectId(id) });
+        res.send(instructor);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
 
-    // ✅ Update Instructor
+    // Update instructor
     app.put("/instructors/:id", async (req, res) => {
-      const id = req.params.id;
-      const updatedInstructor = req.body;
-      const filter = { _id: new ObjectId(id) };
-      const updateDoc = { $set: updatedInstructor };
-      const result = await instructorCollection.updateOne(filter, updateDoc);
-      res.send(result);
+      try {
+        const id = req.params.id;
+        const updatedInstructor = req.body;
+        const result = await instructorsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updatedInstructor }
+        );
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
 
-    // ✅ Delete Instructor
+    // Delete instructor
     app.delete("/instructors/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await instructorCollection.deleteOne(query);
-      res.send(result);
+      try {
+        const id = req.params.id;
+        const result = await instructorsCollection.deleteOne({ _id: new ObjectId(id) });
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
     });
 
-    // ----------------------------------
-    // ✅ Root Route
-    // ----------------------------------
+    // Root route
     app.get("/", (req, res) => {
       res.send("Learning Server is running successfully!");
     });
@@ -143,6 +194,7 @@ async function run() {
 
 run().catch(console.dir);
 
+// Start server
 app.listen(port, () => {
   console.log(`Learning Server running on port ${port}`);
 });
