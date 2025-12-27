@@ -33,6 +33,7 @@ async function run() {
 
     const usersCollection = db.collection("users");
     const coursesCollection = db.collection("courses");
+    const enrollCollection = db.collection("enroll")
     const instructorsCollection = db.collection("instructors");
 
     // ------------------------------
@@ -109,6 +110,13 @@ async function run() {
     });
 
     // Get courses enrolled by user
+    app.get("/enrollments", async (req, res) => {
+  const email = req.query.email;
+  const result = await enrollCollection.find({ email }).toArray();
+  res.send(result);
+});
+
+
     app.get("/enrolled-courses/:email", async (req, res) => {
       try {
         const email = req.params.email;
