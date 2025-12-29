@@ -1,208 +1,188 @@
-import express from "express";
-import cors from "cors";
-import { MongoClient, ServerApiVersion, ObjectId } from "mongodb";
-import dotenv from "dotenv";
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const admin = require("firebase-admin");
+const serviceAccount = require("./learning-hub-firebase-admin-key.json");
 
-dotenv.config();
 const app = express();
-
-// ------------------------------
-// CORS Configuration
-// ------------------------------
-app.use(cors({
-  origin: "http://localhost:5173", // your frontend URL
-  credentials: true                // allow cookies/auth headers
-}));
-
-app.use(express.json());
-
 const port = process.env.PORT || 3000;
 
 // ------------------------------
-// MongoDB Connection
+// Middleware
+// ------------------------------
+app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(express.json());
+
+// ------------------------------
+// Firebase Admin
+// ------------------------------
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+// ------------------------------
+// Firebase Token Verify Middleware
+// ------------------------------
+const verifyFirebaseToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).send({ message: "Unauthorized" });
+
+  const token = authHeader.split(" ")[1];
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.tokenEmail = decoded.email;
+    next();
+  } catch (error) {
+    res.status(401).send({ message: "Unauthorized" });
+  }
+};
+
+// ------------------------------
+// MongoDB
 // ------------------------------
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.psactc0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 const client = new MongoClient(uri, {
-  serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
+  serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true },
 });
 
 async function run() {
   try {
     await client.connect();
-    const db = client.db("learningDB");
+    console.log("✅ MongoDB connected");
 
+    const db = client.db("learningDB");
     const usersCollection = db.collection("users");
     const coursesCollection = db.collection("courses");
-    const enrollCollection = db.collection("enroll")
+    const enrollCollection = db.collection("enroll");
     const instructorsCollection = db.collection("instructors");
 
     // ------------------------------
-    // COURSE ROUTES
+    // USERS
     // ------------------------------
-
-    // Create Course
-    app.post("/courses", async (req, res) => {
-      try {
-        const newCourse = req.body;
-        const result = await coursesCollection.insertOne(newCourse);
-        res.send(result);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
-      }
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const exists = await usersCollection.findOne({ email: user.email });
+      if (exists) return res.send({ message: "User already exists" });
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
     });
 
-    // Get all courses
+    // ------------------------------
+    // COURSES
+    // ------------------------------
+    app.post("/courses", verifyFirebaseToken, async (req, res) => {
+      const course = req.body;
+      const result = await coursesCollection.insertOne(course);
+      res.send(result);
+    });
+
     app.get("/courses", async (req, res) => {
-      try {
-        const courses = await coursesCollection.find().toArray();
-        res.send(courses);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
-      }
+      const courses = await coursesCollection.find().toArray();
+      res.send(courses);
     });
 
-    // Get course by ID
     app.get("/courses/:id", async (req, res) => {
-      try {
-        const id = req.params.id;
-        const course = await coursesCollection.findOne({ _id: new ObjectId(id) });
-        res.send(course);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
-      }
+      const course = await coursesCollection.findOne({ _id: new ObjectId(req.params.id) });
+      res.send(course);
     });
 
-    // Update course
-    app.put("/courses/:id", async (req, res) => {
-      try {
-        const id = req.params.id;
-        const updatedCourse = req.body;
-        const result = await coursesCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: updatedCourse }
-        );
-        res.send(result);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
-      }
+    app.put("/courses/:id", verifyFirebaseToken, async (req, res) => {
+      const result = await coursesCollection.updateOne(
+        { _id: new ObjectId(req.params.id) },
+        { $set: req.body }
+      );
+      res.send(result);
     });
 
-    // Delete course
-    app.delete("/courses/:id", async (req, res) => {
-      try {
-        const id = req.params.id;
-        const result = await coursesCollection.deleteOne({ _id: new ObjectId(id) });
-        res.send(result);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
-      }
-    });
-
-    // Get courses added by instructor
-    app.get("/my-courses/:email", async (req, res) => {
-      try {
-        const email = req.params.email;
-        const courses = await coursesCollection.find({ "instructor.email": email }).toArray();
-        res.send(courses);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
-      }
-    });
-
-    // Get courses enrolled by user
-    app.get("/enrollments", async (req, res) => {
-  const email = req.query.email;
-  const result = await enrollCollection.find({ email }).toArray();
-  res.send(result);
-});
-
-
-    app.get("/enrolled-courses/:email", async (req, res) => {
-      try {
-        const email = req.params.email;
-        const courses = await coursesCollection.find({ enrolledUsers: email }).toArray();
-        res.send(courses);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
-      }
+    app.delete("/courses/:id", verifyFirebaseToken, async (req, res) => {
+      const result = await coursesCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+      res.send(result);
     });
 
     // ------------------------------
-    // INSTRUCTOR ROUTES
+    // ENROLLMENTS
     // ------------------------------
+    app.post("/enroll", verifyFirebaseToken, async (req, res) => {
+      const result = await enrollCollection.insertOne(req.body);
+      res.send(result);
+    });
 
-    // Create instructor
+    app.get("/enroll", verifyFirebaseToken, async (req, res) => {
+      const email = req.query.email;
+      if (email !== req.tokenEmail) return res.status(403).send({ message: "Forbidden" });
+      const result = await enrollCollection.find({ email }).toArray();
+      res.send(result);
+    });
+
+    // ------------------------------
+    // INSTRUCTORS
+    // ------------------------------
+    // app.post("/instructors", async (req, res) => {
+    //   const result = await instructorsCollection.insertOne(req.body);
+    //   res.send(result);
+    // });
+
+    // app.get("/instructors", async (req, res) => {
+    //   const instructors = await instructorsCollection.find().toArray();
+    //   res.send(instructors);
+    // });
+
+     // POST: Save Instructor
+    // =============================
     app.post("/instructors", async (req, res) => {
-      try {
-        const newInstructor = req.body;
-        const result = await instructorsCollection.insertOne(newInstructor);
-        res.send(result);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
+      const instructor = req.body;
+
+      // prevent duplicate email
+      const existing = await instructorsCollection.findOne({
+        email: instructor.email,
+      });
+
+      if (existing) {
+        return res.send({ message: "Instructor already exists" });
       }
+
+      const result = await instructorsCollection.insertOne({
+        ...instructor,
+        role: "instructor",
+        createdAt: new Date(),
+      });
+
+      res.send(result);
     });
 
-    // Get all instructors
+    // =============================
+    // GET: All Instructors
+    // =============================
     app.get("/instructors", async (req, res) => {
-      try {
-        const instructors = await instructorsCollection.find().toArray();
-        res.send(instructors);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
-      }
+      const result = await instructorsCollection.find().toArray();
+      res.send(result);
     });
 
-    // Get instructor by ID
-    app.get("/instructors/:id", async (req, res) => {
-      try {
-        const id = req.params.id;
-        const instructor = await instructorsCollection.findOne({ _id: new ObjectId(id) });
-        res.send(instructor);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
-      }
+    // =============================
+    // GET: Single Instructor by Email
+    // =============================
+    app.get("/instructors/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await instructorsCollection.findOne({ email });
+      res.send(result);
     });
-
-    // Update instructor
-    app.put("/instructors/:id", async (req, res) => {
-      try {
-        const id = req.params.id;
-        const updatedInstructor = req.body;
-        const result = await instructorsCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: updatedInstructor }
-        );
-        res.send(result);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
-      }
-    });
-
-    // Delete instructor
-    app.delete("/instructors/:id", async (req, res) => {
-      try {
-        const id = req.params.id;
-        const result = await instructorsCollection.deleteOne({ _id: new ObjectId(id) });
-        res.send(result);
-      } catch (err) {
-        res.status(500).send({ error: err.message });
-      }
-    });
-
-    // Root route
+    // ------------------------------
+    // ROOT
+    // ------------------------------
     app.get("/", (req, res) => {
-      res.send("Learning Server is running successfully!");
+      res.send("🚀 Learning Server running");
     });
-
-    console.log("✅ MongoDB connected successfully!");
   } catch (err) {
-    console.error("Error connecting to MongoDB:", err);
+    console.error(err);
   }
 }
 
-run().catch(console.dir);
+run();
 
-// Start server
+// ------------------------------
+// Start Server
+// ------------------------------
 app.listen(port, () => {
-  console.log(`Learning Server running on port ${port}`);
+  console.log(`🚀 Server running on port ${port}`);
 });
