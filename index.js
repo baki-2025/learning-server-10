@@ -82,9 +82,29 @@ async function run() {
       res.send(courses);
     });
 
+     // ✅ FIXED COURSE DETAILS ROUTE
     app.get("/courses/:id", async (req, res) => {
-      const course = await coursesCollection.findOne({ _id: new ObjectId(req.params.id) });
-      res.send(course);
+      try {
+        const id = req.params.id;
+
+        // 🔐 ObjectId validation
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).send({ message: "Invalid course ID" });
+        }
+
+        const course = await coursesCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        if (!course) {
+          return res.status(404).send({ message: "Course not found" });
+        }
+
+        res.send(course);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Server error" });
+      }
     });
 
     app.put("/courses/:id", verifyFirebaseToken, async (req, res) => {
@@ -96,37 +116,44 @@ async function run() {
     });
 
     app.delete("/courses/:id", verifyFirebaseToken, async (req, res) => {
-      const result = await coursesCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+      const result = await coursesCollection.deleteOne({
+        _id: new ObjectId(req.params.id),
+      });
       res.send(result);
     });
 
     // ------------------------------
     // ENROLLMENTS
     // ------------------------------
-    app.post("/enroll", verifyFirebaseToken, async (req, res) => {
-      const result = await enrollCollection.insertOne(req.body);
-      res.send(result);
-    });
-
     app.get("/enroll", verifyFirebaseToken, async (req, res) => {
-      const email = req.query.email;
-      if (email !== req.tokenEmail) return res.status(403).send({ message: "Forbidden" });
-      const result = await enrollCollection.find({ email }).toArray();
-      res.send(result);
-    });
+  const email = req.query.email;
 
-    // ------------------------------
+  if (email !== req.tokenEmail) {
+    return res.status(403).send({ message: "Forbidden" });
+  }
+
+  const result = await enrollCollection
+    .find({ studentEmail: email }) // 🔥 FIX HERE
+    .toArray();
+
+  res.send(result);
+});
+
+
+    app.post("/enroll", verifyFirebaseToken, async (req, res) => {
+  const { courseId, studentEmail } = req.body;
+
+  const exists = await enrollCollection.findOne({ courseId, studentEmail });
+  if (exists) {
+    return res.status(409).send({ message: "Already enrolled" });
+  }
+
+  const result = await enrollCollection.insertOne(req.body);
+  res.send(result);
+});
+
     // INSTRUCTORS
-    // ------------------------------
-    // app.post("/instructors", async (req, res) => {
-    //   const result = await instructorsCollection.insertOne(req.body);
-    //   res.send(result);
-    // });
-
-    // app.get("/instructors", async (req, res) => {
-    //   const instructors = await instructorsCollection.find().toArray();
-    //   res.send(instructors);
-    // });
+    
 
      // POST: Save Instructor
     // =============================
