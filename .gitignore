@@ -1,3 +1,5 @@
 node_modules
 .env
 learning-hub-firebase-admin-key.json
+.vercel
+.env*.local
