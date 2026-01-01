@@ -3,7 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const admin = require("firebase-admin");
-const serviceAccount = require("./learning-hub-firebase-admin-key.json");
+//const serviceAccount = require("./learning-hub-firebase-admin-key.json");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -11,7 +11,17 @@ const port = process.env.PORT || 3000;
 // ------------------------------
 // Middleware
 // ------------------------------
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://learning-hub-f2f50.web.app",
+      "https://learning-hub-f2f50.firebaseapp.com"
+    ],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
 // index.js
