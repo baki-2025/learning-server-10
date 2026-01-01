@@ -15,9 +15,10 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
+       "https://iridescent-bombolone-05fb9e.netlify.app",
       "https://learning-hub-f2f50.web.app",
       "https://learning-hub-f2f50.firebaseapp.com",
-      "https://iridescent-bombolone-05fb9e.netlify.app"
+     
     ],
     credentials: true,
   })
