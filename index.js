@@ -16,7 +16,8 @@ app.use(
     origin: [
       "http://localhost:5173",
       "https://learning-hub-f2f50.web.app",
-      "https://learning-hub-f2f50.firebaseapp.com"
+      "https://learning-hub-f2f50.firebaseapp.com",
+      "https://iridescent-bombolone-05fb9e.netlify.app"
     ],
     credentials: true,
   })
@@ -62,7 +63,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+   
     console.log("✅ MongoDB connected");
 
     const db = client.db("learningDB");
