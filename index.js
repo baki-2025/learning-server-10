@@ -3,7 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const admin = require("firebase-admin");
-//const serviceAccount = require("./learning-hub-firebase-admin-key.json");
+
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -11,18 +11,22 @@ const port = process.env.PORT || 3000;
 // ------------------------------
 // Middleware
 // ------------------------------
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-       "https://iridescent-bombolone-05fb9e.netlify.app",
-      "https://learning-hub-f2f50.web.app",
-      "https://learning-hub-f2f50.firebaseapp.com",
+// app.use(
+//   cors({
+//     origin: [
+//       "http://localhost:5173",
+//        "https://iridescent-bombolone-05fb9e.netlify.app",
+//       "https://learning-hub-f2f50.web.app",
+//       "https://learning-hub-f2f50.firebaseapp.com",
      
-    ],
-    credentials: true,
-  })
-);
+//     ],
+//     credentials: true,
+//   })
+// );
+app.use(cors({
+  origin: true, // 🔥 allow all origins dynamically (best for Vercel)
+  credentials: true,
+}));
 
 app.use(express.json());
 
@@ -149,7 +153,7 @@ async function run() {
   }
 
   const result = await enrollCollection
-    .find({ studentEmail: email }) // 🔥 FIX HERE
+    .find({ studentEmail: email }) 
     .toArray();
 
   res.send(result);
@@ -167,6 +171,9 @@ async function run() {
   const result = await enrollCollection.insertOne(req.body);
   res.send(result);
 });
+
+
+  
 
     // INSTRUCTORS
     
@@ -229,3 +236,4 @@ run();
 app.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
 });
+
