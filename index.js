@@ -4,7 +4,6 @@ require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const admin = require("firebase-admin");
 
-
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -128,12 +127,24 @@ async function run() {
     });
 
     app.put("/courses/:id", verifyFirebaseToken, async (req, res) => {
-      const result = await coursesCollection.updateOne(
-        { _id: new ObjectId(req.params.id) },
-        { $set: req.body }
-      );
-      res.send(result);
-    });
+  const id = req.params.id;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).send({ message: "Invalid course ID" });
+  }
+
+  const result = await coursesCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: req.body }
+  );
+
+  if (result.matchedCount === 0) {
+    return res.status(404).send({ message: "Course not found" });
+  }
+
+  res.send(result);
+});
+
 
     app.delete("/courses/:id", verifyFirebaseToken, async (req, res) => {
       const result = await coursesCollection.deleteOne({
